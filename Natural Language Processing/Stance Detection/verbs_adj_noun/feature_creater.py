@@ -2,7 +2,6 @@
 """
 Created on Tue Oct 17 21:42:09 2017
 
-@author: manoj
 """
 
 import pickle

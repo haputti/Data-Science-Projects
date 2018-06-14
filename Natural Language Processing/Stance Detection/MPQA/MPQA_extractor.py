@@ -2,7 +2,6 @@
 """
 Created on Fri Oct 13 18:29:16 2017
 
-@author: manoj
 """
 import pandas as pd
 import nltk 

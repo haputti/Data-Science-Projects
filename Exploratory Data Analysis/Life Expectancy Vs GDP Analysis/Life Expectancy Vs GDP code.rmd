@@ -1,0 +1,438 @@
+---
+title: "Mini-Project"
+author: "Gautham Arra", "Harika Putti", "Priyadarshini Vijjigiri"
+date: "2/10/2018"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+```{r}
+#setup
+install.packages("gapminder")
+install.packages("ggplot2")
+install.packages("broom")
+install.packages("MASS")
+install.packages("tidyr")
+```
+
+## Problem 1
+
+Introduction:
+
+In this section, we aim to find out how does Life Expectancy vary with GDP percapita in the year 2007 and we will also analyse the trends by continent.
+
+Strategy:
+
+1) First, we shall load the required libraries 'gapminder', ggplot2, broom, mass and tidyr. Next, we create a data frame called "In2007", which will capture necessary information like GDP per capita, life expectancy, population.
+2) Then we tried to capture the trend of Life expectancy vs GDP Per capita with a linear smoothing, next we tried to capture the trend with a loess smoothing but neither seem to fit the data properly. 
+3) We then perform a Log transformation on the GDP per capita data to better capture the trend. We tried a linear model and a loess model. (Figure 1)
+4) Next we plotted a graph to understand the trend of Life expectancy vs GDP Per capita in Asia because there seems to be unusual activity in the few of the years.
+
+
+```{r,results='hide', fig.keep='none'}
+library("gapminder")
+library("ggplot2")
+library('broom')
+data = gapminder
+
+#View(data)
+
+# Creating a dataframe to capture the information in the year 2007
+In2007 = data.frame(gdpPercap = data$gdpPercap[data$year == "2007"], lifeExp = data$lifeExp[data$year == "2007"], continent = data$continent[data$year == "2007"],pop=data$pop)
+
+#head(In2007)
+
+```
+
+
+```{r}
+
+#Plotting geom_point with linear smoothing for Life Expectancy vs GDP percapita
+ggplot(In2007, aes(x=gdpPercap, y = lifeExp))+geom_point()+geom_smooth(aes(weight=pop),se=FALSE,method = "lm")
+
+```
+
+Trend cannot be described by simple linear model
+
+```{r}
+
+# Plotting geom_point with loess smoothing for Life Expectancy vs GDP percapita
+ggplot(In2007, aes(x=gdpPercap, y = lifeExp))+geom_point()+geom_smooth(method = 'loess', aes(weight=pop),se=FALSE,adjust=1.5)
+
+```
+
+Checking the accuracy of the fit
+
+```{r}
+library(MASS)
+in2007.lm2 = lm(gdpPercap ~lifeExp , data = In2007)
+in2007.long.lm2 = augment(in2007.lm2)
+#variance explained by gdpPercap and year together
+var(in2007.long.lm2$.fitted)/var(in2007.long.lm2$gdpPercap)
+
+in2007.loess = loess(gdpPercap ~lifeExp , data = In2007)
+in2007.long.loess = augment(in2007.loess)
+#variance explained by gdpPercap and year together
+var(in2007.long.loess$.fitted)/var(in2007.long.loess$gdpPercap)
+```
+
+Using Log tranformation on GDP data to get better results
+
+```{r}
+# Log Transforming GDP Percapita 
+
+gdpPercapita.log = log2(data$gdpPercap)
+
+In2007$gdpPercapita2007.log = log2(data$gdpPercap[data$year == 2007])
+
+#head(In2007)
+
+```
+
+Linear model
+```{r}
+#Plotting geom_point with linear smoothing for Life Expectancy vs GDP percapita
+ggplot(data = In2007, aes(x=gdpPercapita2007.log, y = lifeExp))+geom_point()+geom_smooth(aes(weight=pop),se=FALSE,method = "lm") + xlab("Log(GDP Per Capita)") +
+  ylab("Life Expectancy") + ggtitle("Linear model of Life Expectancy Vs GDP")
+
+```
+
+Loess model
+```{r}
+
+# Plotting geom_point with loess smoothing for Life Expectancy vs GDP percapita
+ggplot(In2007, aes(x=gdpPercapita2007.log, y = lifeExp))+geom_point()+geom_smooth(method = 'loess', aes(weight=pop),se=FALSE,adjust=1)
+```
+
+```{r}
+in2007log.lm2 = lm(lifeExp ~ gdpPercapita2007.log, data = In2007)
+in2007log.long.lm2 = augment(in2007log.lm2)
+#variance explained by gdpPercap and year together
+var(in2007log.long.lm2$.fitted)/var(in2007log.long.lm2$lifeExp)
+
+in2007log.loess = loess(lifeExp ~ gdpPercapita2007.log, data = In2007)
+in2007log.long.loess = augment(in2007log.loess)
+#variance explained by gdpPercap and year together
+var(in2007log.long.loess$.fitted)/var(in2007log.long.loess$lifeExp)
+
+summary(in2007log.lm2)
+```
+
+```{r}
+ggplot(data = In2007, aes(x=gdpPercapita2007.log, y = lifeExp,color = continent) )+geom_point()+geom_smooth(aes(weight=pop),se=FALSE,method = "lm") + xlab("Log(GDP Per Capita)") +
+  ylab("Life Expectancy") + ggtitle("Life Expectancy Vs GDP by Continent")
+```
+
+```{r}
+africa.lm = lm(lifeExp ~ gdpPercapita2007.log, data = subset(In2007, continent == 'Africa', select = c(gdpPercap, lifeExp, continent, pop, gdpPercapita2007.log)))
+summary(africa.lm)
+
+```
+
+```{r}
+americas.lm = lm(lifeExp ~ gdpPercapita2007.log, data = subset(In2007, continent == 'Americas', select = c(gdpPercap, lifeExp, continent, pop, gdpPercapita2007.log)))
+summary(americas.lm)
+```
+
+```{r}
+asia.lm = lm(lifeExp ~ gdpPercapita2007.log, data = subset(In2007, continent == 'Asia', select = c(gdpPercap, lifeExp, continent, pop, gdpPercapita2007.log)))
+summary(asia.lm)
+```
+
+```{r}
+europe.lm = lm(lifeExp ~ gdpPercapita2007.log, data = subset(In2007, continent == 'Europe', select = c(gdpPercap, lifeExp, continent, pop, gdpPercapita2007.log)))
+summary(europe.lm)
+```
+
+```{r}
+oceania.lm = lm(lifeExp ~ gdpPercapita2007.log, data = subset(In2007, continent == 'Oceania', select = c(gdpPercap, lifeExp, continent, pop, gdpPercapita2007.log)))
+summary(oceania.lm)
+```
+
+
+```{r}
+ggplot(data = In2007, aes(x=gdpPercapita2007.log, y = lifeExp,color = continent) )+geom_point()+geom_smooth(aes(weight=pop),se=FALSE,method = "lm") + facet_grid(~continent) +geom_abline(slope = 3, intercept = 40, color = "black", lwd = 1) + xlab("Log(GDP Per Capita)") + ylab("Life Expectancy") + ggtitle("Life Expectancy Vs GDP split by Continent")
+```
+
+Conclusions/Inferences:
+1)	Firstly, without transforming the GDP data we could not fit the model properly. After performing a log2 transformation, the linear model seems to do a good job describing the data. When we try any complicated models like loess, there doesn't seem to be any change in the fit.
+2)	When checked for accuracy, linear model explains 65.4% of the variance in life expectancy in 2007. 
+3)	The overall graph increases linearly with the increasing GDP per capita. This indicates that Life expectancy increases with increasing GDP.
+4)	Regarding the trend of Life expectancy vs GDP Per capita per each continent: 
+a.	There are only two data points for continent Oceania, so nothing concrete can be said about Oceania. America, Asia and Europe have linearly increasing data, and all seem to converge to a constant life expectancy towards the end. Africa has different distribution, but it is also increasing.
+b.	By looking at the plot, the trend for all continents look almost similar and could be explained by an additive shift. This is evident when the slopes and intercept values are compared. All of them have a slope around 3 with varying intercepts ranging from 22 to 35 indicating an additive shift.
+
+
+
+## Problem 2
+
+
+Introduction :
+The aim of this section is to find out if there are any trend in Life expectancy over time for each continent, by the end of this section we should be able to explain the quesitons that the researcher has with regards to changes in Life Expectancy vs time. 
+
+Strategy:
+1) First we shall create a dataframe called "avgLifeExpectancy" which captures the essential data like weighted average of lifeExp for each continent, year, continent.
+2) Next we shall plot the avg LifeExp vs time as per continent.
+
+```{r}
+
+avgLifeExpectancy.df = data.frame(year = integer(),avglifeExp = numeric(), continent = character(), gdpPercap = character())
+
+asia.df = data[data$continent == 'Asia',]
+africa.df = data[data$continent == 'Africa',]
+europe.df = data[data$continent == 'Europe',]
+americas.df = data[data$continent == 'Americas',]
+oceania.df = data[data$continent == 'Oceania',]
+sum1 = 0
+sum2 = 0
+sum3 = 0
+sum4 = 0
+sum5 = 0
+gdp1 = 0
+gdp2 = 0
+gdp3 = 0
+gdp4 = 0
+gdp5 = 0
+
+for (year in seq(1952,2007,5)){
+ sum1 =  sum(data$lifeExp[data$continent == 'Asia'& data$year ==year]*data$pop[data$continent == 'Asia'&  data$year ==year ])
+ gdp1 =  sum(data$gdpPercap[data$continent == 'Asia'& data$year ==year]*data$pop[data$continent == 'Asia'&  data$year ==year ])
+ 
+ sum2 =  sum(data$lifeExp[data$continent == 'Europe'& data$year ==year ]*data$pop[data$continent == 'Europe'& data$year ==year])
+ gdp2 =  sum(data$gdpPercap[data$continent == 'Europe'& data$year ==year ]*data$pop[data$continent == 'Europe'& data$year ==year])
+    
+ sum3 =  sum(data$lifeExp[data$continent == 'Africa'& data$year ==year ]*data$pop[data$continent == 'Africa'& data$year ==year ])
+ gdp3 =  sum(data$gdpPercap[data$continent == 'Africa'& data$year ==year ]*data$pop[data$continent == 'Africa'& data$year ==year ])
+    
+ sum4 = sum(data$lifeExp[data$continent == 'Americas'& data$year ==year ]*data$pop[data$continent == 'Americas'& data$year ==year ])
+ gdp4 = sum(data$gdpPercap[data$continent == 'Americas'& data$year ==year ]*data$pop[data$continent == 'Americas'& data$year ==year ])
+    
+ sum5 = sum(data$lifeExp[data$continent == 'Oceania'& data$year ==year ]*data$pop[data$continent == 'Oceania'& data$year ==year ])
+ gdp5 = sum(data$gdpPercap[data$continent == 'Oceania'& data$year ==year ]*data$pop[data$continent == 'Oceania'& data$year ==year ])
+    
+  sum1 = sum1/(sum(data$pop[data$continent == 'Asia'& data$year ==year]/1))
+  sum2 = sum2/(sum(data$pop[data$continent == 'Europe'& data$year ==year]/1))
+  sum3 = sum3/(sum(data$pop[data$continent == 'Africa'& data$year ==year]/1))
+  sum4 = sum4/(sum(data$pop[data$continent == 'Americas'& data$year ==year]/1))
+  sum5 = sum5/(sum(data$pop[data$continent == 'Oceania'& data$year ==year]/1))
+  gdp1 = gdp1/(sum(data$pop[data$continent == 'Asia'& data$year ==year]/1))
+  gdp2 = gdp2/(sum(data$pop[data$continent == 'Europe'& data$year ==year]/1))
+  gdp3 = gdp3/(sum(data$pop[data$continent == 'Africa'& data$year ==year]/1))
+  gdp4 = gdp4/(sum(data$pop[data$continent == 'Americas'& data$year ==year]/1))
+  gdp5 = gdp5/(sum(data$pop[data$continent == 'Oceania'& data$year ==year]/1))
+  dm = data.frame(year = year,avgLifeExp =sum1, continent ="Asia", gdpPercap = gdp1)
+  avgLifeExpectancy.df<-rbind(avgLifeExpectancy.df,dm)
+  dm = data.frame(year = year,avgLifeExp =sum2, continent ="Europe", gdpPercap = gdp2)
+  avgLifeExpectancy.df<-rbind(avgLifeExpectancy.df,dm)
+  dm = data.frame(year = year,avgLifeExp =sum3, continent ="Africa", gdpPercap = gdp3)
+  avgLifeExpectancy.df<-rbind(avgLifeExpectancy.df,dm)
+  dm = data.frame(year = year,avgLifeExp =sum4, continent ="Americas", gdpPercap = gdp4)
+  avgLifeExpectancy.df<-rbind(avgLifeExpectancy.df,dm)
+  dm = data.frame(year = year,avgLifeExp =sum5, continent ="Oceania", gdpPercap = gdp5)
+  avgLifeExpectancy.df<-rbind(avgLifeExpectancy.df,dm)
+  
+  #print(sum1)
+  
+}
+#head(avgLifeExpectancy.df)
+
+```
+
+```{r}
+ggplot(avgLifeExpectancy.df,aes(x=year, y=avgLifeExp, colour = continent))+geom_point()+geom_line()+
+xlab("Year") +
+  ylab("Life Expectancy") + ggtitle("Life Expectancy Vs Year split by Continent")
+```
+
+
+#Asian countries
+
+```{r}
+asiaAvgLifeExpectancy.df = data.frame(year = integer(),avglifeExp = numeric(), country = character())
+#summary(asia.df$pop)
+
+
+countries.df = data.frame(country = data$country[data$continent == "Asia" & data$year =="1962"], pop = data$pop[data$continent == "Asia" & data$year =="1962"])
+mostpopulatedAsia = countries.df[order(- countries.df$pop),][1:9,]
+for (t in mostpopulatedAsia$country){
+  for (year in c(1952, 1957, 1962, 1967, 1972)){
+    #print(t)
+    sum1 =  sum(data$lifeExp[data$country == t & data$year ==year & data$continent == "Asia"]*data$pop[data$country == t & data$year ==year & data$continent == "Asia" ])
+    sum1 = sum1/(sum(data$pop[data$country == t & data$year ==year & data$continent == "Asia"]/1))
+    dp = data.frame(year = year,avgLifeExp =sum1, country = t)
+    asiaAvgLifeExpectancy.df<-rbind(asiaAvgLifeExpectancy.df,dp)
+  }
+}
+
+#head(asiaAvgLifeExpectancy.df)
+```
+```{r}
+ggplot(asiaAvgLifeExpectancy.df,aes(x=year, y=avgLifeExp))+geom_point()+geom_line(color = "red")+facet_wrap(~country, ncol = 3) + xlab("Year") +
+  ylab("Life Expectancy") + ggtitle("Life Expectancy Vs Year in Asia split by the most populated countries")
+```
+```{r}
+africaAvgLifeExpectancy.df = data.frame(year = integer(),avglifeExp = numeric(), country = character())
+#summary(asia.df$pop)
+
+
+countries.df = data.frame(country = data$country[data$continent == "Africa" & data$year =="1997"], pop = data$pop[data$continent == "Africa" & data$year =="1997"])
+mostpopulatedAfrica = countries.df[order(- countries.df$pop),][1:12,]
+for (t in mostpopulatedAfrica$country){
+  for (year in c(1987, 1992, 1997, 2002, 2007)){
+    #print(t)
+    sum1 =  sum(data$lifeExp[data$country == t & data$year ==year & data$continent == "Africa"]*data$pop[data$country == t & data$year ==year & data$continent == "Africa" ])
+    sum1 = sum1/(sum(data$pop[data$country == t & data$year ==year & data$continent == "Africa"]/1))
+    dp = data.frame(year = year,avgLifeExp =sum1, country = t)
+    africaAvgLifeExpectancy.df<-rbind(africaAvgLifeExpectancy.df,dp)
+  }
+}
+
+#head(africaAvgLifeExpectancy.df)
+```
+```{r}
+ggplot(africaAvgLifeExpectancy.df,aes(x=year, y=avgLifeExp))+ geom_line(color = "limegreen", lwd = 0.75) +geom_point(color = "green4")+facet_wrap(~country, ncol = 3) + xlab("Year") +
+  ylab("Life Expectancy") + ggtitle("Life Expectancy Vs Year in Africa split by the most populated countries")
+```
+
+
+Conclusions/Inferences:
+
+1) Yes, the weighted average Life Expectancy is increasing overtime for each continent, but the slopes are different for each continent. 
+2) Except for the Americas continent, the slopes of increase had changed overtime for all the continents. 
+3) For Oceania continent, the slope is same until year 1972, and the slope has increased in the year 1972 and remained same till 2007. In other words, the speed of increase of Life Expectancy is intially slower but has increased after the year 1972.
+4) For the continents Asia, Africa and Europe, the slope is same until the year 1972, but the slope has decreased in the year 1972 and has remained the same till 2007. In other words, the speed of increase of Life Expectancy is intially faster but has decreased after certain year (different for different continent). 
+5) Oceania and Europe are the top two continents with highest Life Expectancy by the year 2007
+Next are Americas, Asia and Africa in that order of decreasing Life Expectancy by the year 2007
+6) The changes of Life Expectancy vs time are linear (with changing slopes) for each continent(except Americas). But the speed of increase i.e slope is different for each continent with Asia having the most speed of increase, but Asia has started at relatively low Life Expectancy at 1950, neverthless, it has almost caught up with Oceana and Europe by the year 2007. Africa on the other hand could not catch up with the rest of the continents owing to small slope and very low intial value of LIfeExp at the year 1952.
+7) 
+
+
+## Problem 3
+
+Introduction:
+In this section we aim to explore the relationship between LifeExp, GDP Percapita and time using trivariate analysis. We shall answer questions like does LifeExp only depend on GDP PerCapita or time also ? In conclusion, does the effect of GDP Percapita wears off? Are there any exceptions.
+
+Strategy:
+
+1) First we plot lifeExp vs gdpPercap and facet the graph with continent
+2) Next, we plot lifeExp vs gdpPercap and facet_grid the graph with year cutting into 5 parts
+3) Next we fitted a loess model for lifeExp vs GDP Percapita and plotted a residual plot
+
+```{r}
+ggplot(avgLifeExpectancy.df,aes(y= avgLifeExp, x= log2(gdpPercap),group = factor(year),
+               color= factor(year))) + 
+  geom_point() + geom_line()  +
+  facet_wrap(~continent) + xlab("Log(GDPPerCapita)") +
+  ylab("Life Expectancy") + ggtitle("Life Expectancy Vs GDP factored by year and grouped by continent")
+```
+
+
+```{r}
+ggplot(data,aes(y= lifeExp, x= log2(gdpPercap),
+               color= factor(continent))) + 
+  geom_point() + geom_smooth(method = "lm", se = FALSE) +
+  facet_wrap(~cut_number(year,dig.lab=4,n=6)) +xlab("Log(GDPPerCapita)") +
+  ylab("Life Expectancy") + ggtitle("Life Expectancy Vs GDP factored by year and grouped by continent")
+```
+
+```{r}
+
+library(MASS)
+data.lm = loess(lifeExp ~ log2(gdpPercap) + year, data = data, psi = psi.bisquare)
+#Exploring the residuals
+residual.loss = residuals(data.lm)
+data.lm.df = data.frame(residual= residuals(data.lm), gdpPercap = log2(data$gdpPercap), year = data$year)
+ggplot(data.lm.df, aes(x = log2(gdpPercap), y = residual)) + geom_point() + 
+    geom_smooth(method = "lm") +geom_abline(slope = 0) + ggtitle("Residual plot for lm model")
+
+
+
+```
+#new changes starts
+Talking about Asia
+```{r}
+ggplot(asia.df, aes(x = log2(gdpPercap), y = lifeExp)) + geom_point() + 
+    geom_smooth(aes(weight = pop),method.args = list(degree = 1)) + facet_grid(~cut_number(year, 
+    n = 3)) + labs(title = "Rubber data split by time")
+ggplot(asia.df, aes(x = log2(gdpPercap), y = lifeExp)) + geom_point() + 
+    geom_smooth(aes(weight = pop),method.args = list(degree = 1)) + facet_grid(~cut_number(year, 
+    n = 5)) + labs(title = "Rubber data split by time")
+
+```
+we get approximately linear relationship in all the graphs. life Expectancy is linearly increasing with log of gdpPercap.
+
+```{r}
+ggplot(asia.df, aes(x = year , y = lifeExp)) + geom_point() + 
+    geom_smooth(aes(weight = pop),method.args = list(degree = 1)) + facet_grid(~cut_number(log2(gdpPercap), n = 3)) + labs(title = "Rubber data split by log of gdpPercap")
+ggplot(asia.df, aes(x = year , y = lifeExp)) + geom_point() + 
+    geom_smooth(aes(weight = pop),method.args = list(degree = 1)) + facet_grid(~cut_number(log2(gdpPercap), n = 5)) + labs(title = "Rubber data split by log of gdpPercap")
+```
+lifeExpectancy is increasing with time in all groups of log of gdpPercpita except in first facet where lifeExpectancy decreased after 1980.
+
+from both types of facet graphs we can say that life Expectancy increases with increase in log(gdpPercap) and along with time.
+```{r}
+library(MASS)
+asia.lm = lm(lifeExp ~ log2(gdpPercap), data = asia.df, psi = psi.bisquare)
+library(broom)
+asia.long.lm = augment(asia.lm)
+#variance explained by gdpPercap
+var(asia.long.lm$.fitted)/var(asia.long.lm$lifeExp)
+#only 47 % of variance is explained by gdpPercapita
+asia.lm2 = lm(lifeExp ~ log2(gdpPercap)+year, data = asia.df, psi = psi.bisquare)
+asia.long.lm2 = augment(asia.lm2)
+#variance explained by gdpPercap and year together
+var(asia.long.lm2$.fitted)/var(asia.long.lm2$lifeExp)
+#69 % of variance is explained by gdpPercapita and year together
+
+
+```
+Talking about Europe
+```{r}
+ggplot(europe.df, aes(x = log2(gdpPercap), y = lifeExp)) + geom_point() + 
+    geom_smooth(aes(weight = pop),method.args = list(degree = 1)) + facet_grid(~cut_number(year, 
+    n = 3)) + labs(title = "Rubber data split by time")
+ggplot(europe.df, aes(x = log2(gdpPercap), y = lifeExp)) + geom_point() + 
+    geom_smooth(aes(weight = pop),method.args = list(degree = 1)) + facet_grid(~cut_number(year, 
+    n = 5)) + labs(title = "Rubber data split by time")
+
+```
+we get approximately linear relationship in all the graphs. life Expectancy is linearly increasing with log of gdpPercap.
+
+```{r}
+ggplot(europe.df, aes(x = year , y = lifeExp)) + geom_point() + 
+    geom_smooth(aes(weight = pop),method.args = list(degree = 1)) + facet_grid(~cut_number(log2(gdpPercap), n = 3)) + labs(title = "Rubber data split by log of gdpPercap")
+ggplot(europe.df, aes(x = year , y = lifeExp)) + geom_point() + 
+    geom_smooth(aes(weight = pop),method.args = list(degree = 1)) + facet_grid(~cut_number(log2(gdpPercap), n = 5)) + labs(title = "Rubber data split by log of gdpPercap")
+```
+lifeExpectancy is increasing with time in all groups of log of gdpPercpita except in first facet where lifeExpectancy has weird relationship with time.
+
+from both types of facet graphs we can say that life Expectancy increases with increase in log(gdpPercap) and along with time.
+```{r}
+library(MASS)
+europe.lm = lm(lifeExp ~ log2(gdpPercap), data = europe.df)
+library(broom)
+europe.long.lm = augment(europe.lm)
+#variance explained by gdpPercap
+var(europe.long.lm$.fitted)/var(europe.long.lm$lifeExp)
+#only 72 % of variance is explained by gdpPercapita
+europe.lm2 = lm(lifeExp ~ log2(gdpPercap)+year, data = europe.df)
+europe.long.lm2 = augment(europe.lm2)
+#variance explained by gdpPercap and year together
+var(europe.long.lm2$.fitted)/var(europe.long.lm2$lifeExp)
+#79 % of variance is explained by gdpPercapita and year together
+```
+there is not much increase in the explained variance on adding time so most of the changes in Europe are explained by changes in log of gdpPercapita
+#new changes ends
+
+
+
+Conclusions/Inferences:
+
+1) For the graph of lifeExp vs GDP Percapita faceted by continent, we see that lifeExp increases for almost all cotinents save Africa. For Africa, the lifeExp increases first and then decreases steadily giving a U shaped curve. For the rest of continents the lifeExp increases non linearly with changes in the slope and sometime flattens in the end.
+2) For the graph of lifeExp vs GDP Percapita faceted by year(n=5), almost all the graphs shows a U shaped curve , but this is mostly because of outliers. Otherwise the lifeExp increases for the most part with GDP percapita for all the year slots.
+3) To find the if lifeExp depends entirely on GDP percapita, we had fitted a loess model,and plotted a residual graph, from the residual graph it looks like the loess model explans the relationship between lifeExp and GDP percapita
+4) From the facted graph of lifeExp vs GDP percapita with time, it looks like there is a time effect on life expectancy in addtion to GDP effect.

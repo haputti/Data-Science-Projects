@@ -1,0 +1,500 @@
+---
+title: 'Mini-project 2: Obama to Trump'
+author: "Harika Putti"
+date: "3/9/2018"
+output:
+  pdf_document: default
+  html_document: default
+  word_document: default
+---
+Problem Statement:
+To what extent do attitudes toward immigration explain the switching of votes of 2012 Obama supporters who became 2016 Trump supporters?
+
+Data:
+Technical variables:
+commonweight_vv_post: The survey weights for people who took the post-election survey.
+tookpost: Whether the respondent took the post-election survey. Limit your study to those for whom this is "Yes."
+
+Demographic variables:
+gender: Male or Female.
+educ: Education (an ordered factor with six levels.)
+race: A factor with eight levels.
+pid7: Party identification (an ordered factor with seven levels from "Strong Democrat" to "Strong Republican.")
+
+Voting variables:
+CC16_326: The respondent's vote in the 2012 Presidential election who voted for Barack Obama.
+CC16_410a: The respondent's vote in the 2016 Presidential election. 
+
+Immigration variables:
+Respondents were asked: "What do you think the U.S. government should do about immigration? Select all that apply."
+CC16_331_1: Grant legal status to all illegal immgrants who have held jobs and paid taxes for at least 3 years, and not been convicted of any felony crimes
+CC16_331_2: Increase the number of border patrols on the U.S.-Mexican border
+CC16_331_3: Grant legal status to people who were brought to the US illegal as children, but who have graduated from a U.S. high school
+CC16_331_7: Identify and deport illegal immigrants
+
+Setting up R
+```{r}
+library(ggplot2)
+library(dplyr)
+library(GGally)
+```
+
+Setting up input data
+```{r}
+df = load("CCES16_Common_OUTPUT_Feb2018_VV.RData")
+
+df1 = x[c("commonweight_vv_post", "tookpost", "gender","educ",
+                            "race", "pid7", "CC16_326", "CC16_410a",
+                            "CC16_331_1", "CC16_331_2", "CC16_331_3", "CC16_331_7")]
+
+#summary(df1)
+```
+
+
+Question 0
+```{r}
+df2 = subset(df1, tookpost=="Yes" & CC16_326 == "Barack Obama",select = commonweight_vv_post : CC16_331_7)
+
+df2$voted_Trump[df2$CC16_410a == "Donald Trump (Republican)"] = 1
+df2$voted_Trump[is.na(df2$voted_Trump)] = 0
+
+df2$CC16_331_1 = recode(df2$CC16_331_1, "Yes" = 1, "No" = -1)
+df2$CC16_331_3 = recode(df2$CC16_331_3, "Yes" = 1, "No" = -1)
+df2$CC16_331_2 = recode(df2$CC16_331_2, "Yes" = -1, "No" = 1)
+df2$CC16_331_7 = recode(df2$CC16_331_7, "Yes" = -1, "No" = 1)
+
+df2$imm_att = df2$CC16_331_1 + df2$CC16_331_3 + df2$CC16_331_2 + df2$CC16_331_7
+
+df2$race = recode(df2$race, "Mixed" = "Other", "Asian" = "Other", "Native American"= "Other", "Middle Eastern"= "Other")
+#unique(df2$race)    
+#White    Other    Hispanic Black   
+#Levels: White < Black < Hispanic < Other < Skipped < Not Asked
+#df2 %>% count(race)
+#unique(df2$imm_att)
+#4 -2  0  2 -4
+
+df2$imm_att = df2$imm_att/2
+#unique(df2$imm_att)
+#2 -1  0  1 -2
+
+df2$pid7[is.na(df2$pid7)] <- "Not sure"
+df2$pid7 = recode(df2$pid7, "Not sure" = "Independent")
+#number of individuals who voted for Obama
+nrow(df2)
+#number of individuals who voted for trump in 2016 who had previously voted for Obama
+length(df2$voted_Trump[df2$voted_Trump == 1])
+```
+After doing this, we too got a data frame consisting of data for 23,395 individuals who voted for Obama in 2012, of whom 2,121 said they voted for Trump in 2016.
+
+```{r}
+ggpairs(df2[c(2,3,4,5,6,13,14)])
+```
+
+Question 1
+One Predictor
+```{r}
+100*sum(df2$commonweight_vv_post[df2$voted_Trump == 1])/sum(df2$commonweight_vv_post)
+#10.93 % have switched to Trump from Obama
+```
+
+Creating data frames for each predictor.
+```{r}
+q1race = aggregate(commonweight_vv_post ~ race+voted_Trump, data = df2, FUN = sum)
+q1race.y = q1race[q1race$voted_Trump == 1,]
+q1race.n = q1race[q1race$voted_Trump == 0,]
+q1race.p = q1race.y
+q1race.p$commonweight_vv_post = 100*(q1race.y$commonweight_vv_post/(q1race.y$commonweight_vv_post + q1race.n$commonweight_vv_post))
+#q1race
+
+q1imm_att = aggregate(commonweight_vv_post ~ imm_att+voted_Trump, data = df2, FUN = sum)
+q1imm_att.y = q1imm_att[q1imm_att$voted_Trump == 1,]
+q1imm_att.n = q1imm_att[q1imm_att$voted_Trump == 0,]
+q1imm_att.p = q1imm_att.y
+q1imm_att.p$commonweight_vv_post = 100*(q1imm_att.y$commonweight_vv_post/(q1imm_att.y$commonweight_vv_post + q1imm_att.n$commonweight_vv_post))
+#q1imm_att
+
+q1educ = aggregate(commonweight_vv_post ~ educ+voted_Trump, data = df2, FUN = sum)
+q1educ.y = q1educ[q1educ$voted_Trump == 1,]
+q1educ.n = q1educ[q1educ$voted_Trump == 0,]
+q1educ.p = q1educ.y
+q1educ.p$commonweight_vv_post = 100*(q1educ.y$commonweight_vv_post/(q1educ.y$commonweight_vv_post + q1educ.n$commonweight_vv_post))
+#q1educ
+
+q1gender = aggregate(commonweight_vv_post ~ gender+voted_Trump, data = df2, FUN = sum)
+q1gender.y = q1gender[q1gender$voted_Trump == 1,]
+q1gender.n = q1gender[q1gender$voted_Trump == 0,]
+q1gender.p = q1gender.y
+q1gender.p$commonweight_vv_post = 100*(q1gender.y$commonweight_vv_post/(q1gender.y$commonweight_vv_post + q1gender.n$commonweight_vv_post))
+#q1gender
+
+q1pid7 = aggregate(commonweight_vv_post ~ pid7+voted_Trump, data = df2, FUN = sum)
+q1pid7.y = q1pid7[q1pid7$voted_Trump == 1,]
+q1pid7.n = q1pid7[q1pid7$voted_Trump == 0,]
+q1pid7.p = q1pid7.y
+q1pid7.p$commonweight_vv_post = 100*(q1pid7.y$commonweight_vv_post/(q1pid7.y$commonweight_vv_post + q1pid7.n$commonweight_vv_post))
+#q1pid7
+
+```
+
+Graphically depicting the proportion that switched to Trump by each of the catergorical predictors
+```{r}
+#Predictor = Race
+ggplot(q1race.p, aes(x=race, y= commonweight_vv_post, group = 1)) + geom_point() + geom_line() + ggtitle("Percentage of Individuals that switched to Trump based on Race") + ylab("Weighted Percentage") + xlab("Race")
+#+geom_smooth(method = "lm")
+
+#Predictor = Immigration Attitude
+ggplot(q1imm_att.p, aes(x=imm_att, y=commonweight_vv_post)) + geom_line() + geom_point() + ggtitle("Percentage of Individuals that switched to Trump based on Immigration Attitude") + ylab("Weighted Percentage") + xlab("Immigration Attitude") + scale_x_continuous(breaks=seq(-2,2,1), labels=c("Strongly Negative","Negative","Neutral","Positive","Strongly Positive")) 
+#+geom_smooth(method = "lm")
+
+#Predictor = Education
+ggplot(q1educ.p, aes(x=educ, y=commonweight_vv_post, group = 1))+ geom_point() + geom_line()+ theme(axis.text.x = element_text(angle=45, hjust = 1))+ ggtitle("Percentage of Individuals that switched to Trump based on Education") + ylab("Weighted Percentage") + xlab("Education")
+#+geom_smooth(method = "lm")
+
+#Predictor = Gender
+ggplot(q1gender.p, aes(x=gender, y=commonweight_vv_post))+ geom_bar(stat = "identity", fill = c('indianred1','cyan3')) + ggtitle("Percentage of Individuals that switched to Trump based on Gender") + ylab("Weighted Percentage") + xlab("Gender")
+
+#Predictor = Party Identification
+q1pid7.p = q1pid7.p[q1pid7.p$pid7 != 'Not sure',]
+ggplot(q1pid7.p, aes(x=pid7, y=commonweight_vv_post, group = 1))+ geom_line() +geom_point() +theme(axis.text.x = element_text(angle=45, hjust = 1)) + ggtitle("Percentage of Individuals that switched to Trump based on Party Identification") + ylab("Weighted Percentage") + xlab("Party Identification")
+#+geom_smooth(method = "lm")
+
+```
+
+Question 2
+Two Predictors
+
+Converting categorical variables to numerical variables 
+```{r}
+df2$pid7.f = as.numeric(factor(df2$pid7 , levels=c("Strong Democrat" ,"Not very strong Democrat", "Lean Democrat", "Independent", "Lean Republican", "Not very strong Republican", "Strong Republican")), ordered = FALSE)
+#unique(df2$pid7.f)
+
+df2$educ.f = as.numeric(factor(df2$educ , levels=c("No HS" ,"High school graduate", "Some college", "2-year", "4-year", "Post-grad")), ordered = FALSE)
+#unique(df2$educ.f)
+
+df2$race.f = factor(df2$race , levels=c("White" ,"Black", "Hispanic", "Other"), ordered = FALSE)
+#unique(df2$race.f)
+
+df2$gender.f = factor(df2$gender , levels=c("Male", "Female"), ordered = FALSE)
+#unique(df2$race.f)
+```
+
+
+We now want to know how the chance of switching depends on immigration attitude and race simulataneously. Before fitting a model, we plot the data to get a feel for it. We’ll use color to distinguish between individuals that switched and individualss that didn’t.
+
+```{r}
+ggplot(df2,aes(x = imm_att, y = race.f, color =factor(voted_Trump)))+ geom_point(alpha = 0.5)+xlab("Immigration Attitude")+ ylab("race")+labs(color = "Did they switch?")+ scale_color_manual(values =c("#E69F00","#56B4E9"), labels =c("No", "Yes"))
+
+ggplot(df2,aes(x = imm_att, y = pid7.f, color =factor(voted_Trump)))+ geom_point(alpha = 0.5)+xlab("Immigration Attitude")+ ylab("pid7")+labs(color = "Did they switch?")+ scale_color_manual(values =c("#E69F00","#56B4E9"), labels =c("No", "Yes"))
+
+ggplot(df2,aes(x = imm_att, y = educ.f, color =factor(voted_Trump)))+ geom_point(alpha = 0.5)+xlab("Immigration Attitude")+ ylab("education")+labs(color = "Did they switch?")+ scale_color_manual(values =c("#E69F00","#56B4E9"), labels =c("No", "Yes"))
+
+ggplot(df2,aes(x = imm_att, y = gender.f, color =factor(voted_Trump)))+ geom_point(alpha = 0.5)+xlab("Immigration Attitude")+ ylab("Gender")+labs(color = "Did they switch?")+ scale_color_manual(values =c("#E69F00","#56B4E9"), labels =c("No", "Yes"))
+```
+
+
+1. Immigration + Race
+```{r}
+imm_race.logit =glm(voted_Trump ~ imm_att+race.f, family = "quasibinomial", weights = commonweight_vv_post, data = df2)
+summary(imm_race.logit)
+```
+
+The coefficients are the most important things here. 
+According to the model,
+    logit[P(voted_Trump|imm_att, race)] = -1.61828 − 0.80976 × immigration attitude 
+
+For one unit change in imm_att, the log odds of switching votes decreases by 0.81.
+For race, compared to the white population the log odds decrease by 1.6 for the black population and decreases by 0.4 for hispanic population and decreases for rest too by 0.75 
+As in the continuous case, we visualize the fit by drawing multiple curves representing different values of one of the predictors. Let’s display the voter_Trump probability as a function of immigration attitude for a few values of race.
+
+```{r}
+imm_att.df =expand.grid(imm_att = -2:2, race.f=factor(df2$race, ordered = FALSE))
+imm_att.pred =predict(imm_race.logit, type = "response", newdata = imm_att.df)
+imm_att.pred.df =data.frame(imm_att.df, voted_Trump.prob =as.vector(imm_att.pred))
+
+ggplot(imm_att.pred.df,aes(x = imm_att, y = voted_Trump.prob*100, group = race.f, color = race.f))+geom_line()+ xlab("Immigration Attitude")+ ylab("Probability of switching\n (in %age)")+labs(color = "Race")
+
+# race.df =expand.grid(imm_att = -2:2, race.f =seq(1,4, 1))
+# race.pred =predict(imm_race.logit, type = "response", newdata = race.df)
+# race.pred.df =data.frame(race.df, voted_Trump.prob =as.vector(race.pred))
+# 
+# ggplot(race.pred.df,aes(x = race.f, y = voted_Trump.prob, group = imm_att, color = imm_att))+geom_line()+ xlab("Race")+ ylab("Probability of switching")+labs(color = "Immigration attitude")
+```
+
+Adding an interaction.
+We now add an interaction term between Immigration Attitude and race
+
+```{r}
+voted_Trump.int =glm(voted_Trump ~imm_att*race.f, family = "quasibinomial", weights = commonweight_vv_post, data = df2)
+summary(voted_Trump.int)
+
+
+imm_att.int.pred =predict(voted_Trump.int, type = "response", newdata = imm_att.df)
+imm_att.int.pred.df =data.frame(imm_att.df, voter_Trump.prob =as.vector(imm_att.int.pred))
+ggplot(imm_att.int.pred.df,aes(x = imm_att, y = voter_Trump.prob*100, group = race.f, color = race.f))+geom_line()+ xlab("Immigration Attitude")+ ylab("Probability of switching\n (in %age)")+labs(color = "Race")
+
+```
+
+2. Immigration + Education
+```{r}
+imm_educ.logit =glm(voted_Trump ~ imm_att+educ.f, family = "quasibinomial", weights = commonweight_vv_post, data = df2)
+summary(imm_educ.logit)
+```
+
+The coefficients are the most important things here. 
+According to the model,
+    logit[P(voted_Trump|imm_att, educ)] = -1.71214 − 0.77683 × immigration attitude - 0.06894 x education
+
+As in the continuous case, we visualize the fit by drawing multiple curves representing different values of one of the predictors. Let’s display the voter_Trump probability as a function of immigration attitude for a few values of education.
+
+```{r}
+imm_att.df =expand.grid(imm_att = -2:2, educ.f =seq(1,6, 1))
+imm_att.pred =predict(imm_educ.logit, type = "response", newdata = imm_att.df)
+imm_att.pred.df =data.frame(imm_att.df, voted_Trump.prob =as.vector(imm_att.pred))
+
+ggplot(imm_att.pred.df,aes(x = imm_att, y = voted_Trump.prob*100, group = educ.f, color = educ.f))+geom_line()+ xlab("Immigration Attitude")+ ylab("Probability of switching\n (in %age)")+labs(color = "Education")+ scale_colour_continuous(name="Education",
+                         breaks=c(1,2,3,4,5,6),
+                         labels=c("No HS" ,"High school graduate", "Some college", "2-year", "4-year", "Post-grad"))
+
+
+# educ.df =expand.grid(imm_att = -2:2, educ.f =seq(1,6, 1))
+# educ.pred =predict(imm_educ.logit, type = "response", newdata = educ.df)
+# educ.pred.df =data.frame(educ.df, voted_Trump.prob =as.vector(educ.pred))
+# 
+# ggplot(educ.pred.df,aes(x = educ.f, y = voted_Trump.prob, group = imm_att, color = imm_att))+geom_line()+ xlab("Education")+ ylab("Probability of switching")+labs(color = "Immigration attitude")
+```
+
+Adding an interaction.
+We now add an interaction term between Immigration Attitude and education
+
+```{r}
+voted_Trump.int =glm(voted_Trump ~imm_att*educ.f, family = "quasibinomial", weights = commonweight_vv_post, data = df2)
+summary(voted_Trump.int)
+
+
+imm_att.int.pred =predict(voted_Trump.int, type = "response", newdata = imm_att.df)
+imm_att.int.pred.df =data.frame(imm_att.df, voter_Trump.prob =as.vector(imm_att.int.pred))
+ggplot(imm_att.int.pred.df,aes(x = imm_att, y = voter_Trump.prob*100, group = educ.f, color = educ.f))+geom_line()+ xlab("Immigration Attitude")+ ylab("Probability of switching\n (in %age)")+labs(color = "Education")+ scale_colour_continuous(name="Education",
+                         breaks=c(1,2,3,4,5,6),
+                         labels=c("No HS" ,"High school graduate", "Some college", "2-year", "4-year", "Post-grad"))
+
+```
+
+
+3. Immigration + Party Identification
+```{r}
+imm_pid7.logit =glm(voted_Trump ~ imm_att+pid7.f, family = "quasibinomial", weights = commonweight_vv_post, data = df2)
+summary(imm_pid7.logit)
+```
+
+The coefficients are the most important things here. 
+According to the model,
+    logit[P(voted_Trump|imm_att, race)] = -3.69869 − 0.70622 × immigration attitude + 0.62907 x party identity.
+
+As in the continuous case, we visualize the fit by drawing multiple curves representing different values of one of the predictors. Let’s display the voter_Trump probability as a function of immigration attitude for a few values of party identity
+
+```{r}
+imm_att.df =expand.grid(imm_att = -2:2, pid7.f=seq(1,7, 1))
+imm_att.pred =predict(imm_pid7.logit, type = "response", newdata = imm_att.df)
+imm_att.pred.df =data.frame(imm_att.df, voted_Trump.prob =as.vector(imm_att.pred))
+
+ggplot(imm_att.pred.df,aes(x = imm_att, y = voted_Trump.prob*100, group = pid7.f, color = pid7.f))+geom_line()+ xlab("Immigration Attitude")+ ylab("Probability of switching\n (in %age)")+labs(color = "Party Identity") + scale_colour_continuous(name="Party Identity",
+                         breaks=c(1,2,3,4,5,6,7),
+                         labels=c("Strong Democrat" ,"Not very strong Democrat", "Lean Democrat", "Independent", "Lean Republican", "Not very strong Republican", "Strong Republican"))
+
+
+```
+
+Adding an interaction.
+We now add an interaction term between Immigration Attitude and party identity
+
+```{r}
+voted_Trump.int =glm(voted_Trump ~imm_att*pid7.f, family = "quasibinomial", weights = commonweight_vv_post, data = df2)
+summary(voted_Trump.int)
+
+
+imm_att.int.pred =predict(voted_Trump.int, type = "response", newdata = imm_att.df)
+imm_att.int.pred.df =data.frame(imm_att.df, voter_Trump.prob =as.vector(imm_att.int.pred))
+ggplot(imm_att.int.pred.df,aes(x = imm_att, y = voter_Trump.prob*100, group = pid7.f, color = pid7.f))+geom_line()+ xlab("Immigration Attitude")+ ylab("Probability of switching\n (in %age)")+labs(color = "Party Identity") + scale_colour_continuous(name="Party Identity",
+                         breaks=c(1,2,3,4,5,6,7),
+                         labels=c("Strong Democrat" ,"Not very strong Democrat", "Lean Democrat", "Independent", "Lean Republican", "Not very strong Republican", "Strong Republican"))
+
+```
+
+
+4. Immigration + Gender
+```{r}
+imm_gender.logit =glm(voted_Trump ~ imm_att+gender.f, family = "quasibinomial", weights = commonweight_vv_post, data = df2)
+summary(imm_gender.logit)
+```
+
+The coefficients are the most important things here. 
+According to the model,
+    logit[P(voted_Trump|imm_att, race)] = -1.59456 − 0.78642 × immigration attitude - 0.22831 x gender.
+
+As in the continuous case, we visualize the fit by drawing multiple curves representing different values of one of the predictors. Let’s display the voter_Trump probability as a function of immigration attitude for a few values of gender
+
+```{r}
+imm_att.df =expand.grid(imm_att = -2:2, gender.f=factor(df2$gender, ordered = FALSE))
+imm_att.pred =predict(imm_gender.logit, type = "response", newdata = imm_att.df)
+imm_att.pred.df =data.frame(imm_att.df, voted_Trump.prob =as.vector(imm_att.pred))
+
+ggplot(imm_att.pred.df,aes(x = imm_att, y = voted_Trump.prob, group = gender.f, color = gender.f))+geom_line()+ xlab("Immigration Attitude")+ ylab("Probability of switching")+labs(color = "Gender") 
+```
+
+Adding an interaction.
+We now add an interaction term between Immigration Attitude and Gender
+
+```{r}
+voted_Trump.int =glm(voted_Trump ~imm_att*gender.f, family = "quasibinomial", weights = commonweight_vv_post, data = df2)
+summary(voted_Trump.int)
+
+
+imm_att.int.pred =predict(voted_Trump.int, type = "response", newdata = imm_att.df)
+imm_att.int.pred.df =data.frame(imm_att.df, voter_Trump.prob =as.vector(imm_att.int.pred))
+ggplot(imm_att.int.pred.df,aes(x = imm_att, y = voter_Trump.prob, group = gender.f, color = gender.f))+geom_line()+ xlab("Immigration Attitude")+ ylab("Probability of switching")+labs(color = "Gender") 
+
+```
+
+Question 3
+Lot of Predictors
+
+#model 1
+Since we have an interaction between imm_att and Education , we keep that and add party identity, race and gender
+```{r}
+summary(glm(voted_Trump ~imm_att*educ.f*race.f + pid7.f+gender.f , family = "quasibinomial", weights = commonweight_vv_post, data = df2))
+```
+
+Since only party idnetification has some what meaningful coefficient we keep that and forget about the rest. (Race and gender are not what you can call categorical fields so we use single instance of the variables.)
+```{r}
+voted_Trump.model = glm(voted_Trump ~ imm_att + educ.f + race.f +  pid7.f + gender.f + imm_att:educ.f + imm_att:pid7.f + educ.f:pid7.f + imm_att:race.f + educ.f:race.f + race.f:pid7.f + imm_att:gender.f + educ.f:gender.f + race.f:gender.f +  pid7.f:gender.f , family = "quasibinomial", weights = commonweight_vv_post, data = df2)
+
+voted_Trump.model.df = df2
+voted_Trump.model.df$.fitted = fitted.values(voted_Trump.model)
+voted_Trump.model.df$.resid = residuals(voted_Trump.model, type = "response")
+ggplot(voted_Trump.model.df, aes(x = .fitted, y = .resid)) + geom_point() + geom_smooth(method = "loess", 
+    method.args = list(degree = 1)) + xlab("Fitted values") + ylab("Residuals")
+
+#the model appears to fit well
+```
+
+```{r}
+df2.new.glm.broom = augment(voted_Trump.model)
+ggplot(df2.new.glm.broom, aes(sample = .resid)) + stat_qq()
+
+var(df2.new.glm.broom$.fitted)/var(df2$voted_Trump)
+
+var(df2.new.glm.broom$.fitted)/(var(df2.new.glm.broom$.fitted) + var(df2.new.glm.broom$.resid))
+```
+
+```{r}
+ggplot(voted_Trump.model.df, aes(x = imm_att, y = .resid)) + geom_point() + geom_smooth(method = "loess", 
+    method.args = list(degree = 1)) + xlab("Immigration Attitude") + 
+    ylab("Residuals")
+
+#the model fits well
+```
+
+```{r}
+ggplot(voted_Trump.model.df, aes(x = educ.f, y = .resid)) + geom_point() + geom_smooth(method = "loess", 
+    method.args = list(degree = 1)) + xlab("Education") + 
+    ylab("Residuals")
+
+#the model fits well
+```
+
+```{r}
+ggplot(voted_Trump.model.df, aes(x = pid7.f, y = .resid)) + geom_point() + geom_smooth(method = "loess", 
+    method.args = list(degree = 1)) + xlab("Party Identification") + 
+    ylab("Residuals")
+
+#there's a slight bump but that is very insignificant
+```
+
+```{r}
+ggplot(voted_Trump.model.df, aes(x = as.numeric(race.f), y = .resid)) + geom_point() + geom_smooth(method = "loess", 
+    method.args = list(degree = 1)) + xlab("race") + 
+    ylab("Residuals")
+
+#the model fits well
+```
+
+```{r}
+ggplot(voted_Trump.model.df, aes(x = as.numeric(gender.f), y = .resid)) + geom_point() + geom_smooth(method = "loess", 
+    method.args = list(degree = 1)) + xlab("Gender") + 
+    ylab("Residuals")
+
+#the model fits well
+```
+
+
+```{r}
+voted_Trump.grid = expand.grid(imm_att = seq(-2, 2, 1), pid7.f = seq(1,7,2), 
+    educ.f = seq(1, 6, 1), race.f = factor(c("White"), ordered = FALSE), gender.f = factor(c("Male", "Female"), ordered = FALSE))
+
+nice.palette =c("#999999", "#E69F00", "#56B4E9", "#0072B2", "#D55E00", "#CC79A7")
+
+pid7_names = c("1" = "Strong Democrat" ,"2" = "Not very strong Democrat","3" =  "Lean Democrat","4" = "Independent", "5" = "Lean Republican","6" = "Not very strong Republican", "7" = "Strong Republican")
+
+voted_Trump.pred = predict(voted_Trump.model, newdata = voted_Trump.grid, type = "response")
+voted_Trump.grid1 = data.frame(voted_Trump.grid, voter_Trump.prob = as.vector(voted_Trump.pred))
+ggplot(voted_Trump.grid1, aes(x = imm_att, y = voter_Trump.prob, group = educ.f, color = educ.f)) + 
+    geom_line() +facet_grid(race.f + gender.f ~ pid7.f, labeller = labeller(pid7.f = as_labeller(pid7_names)))+ xlab("immigration attitude") + ylab("Probability of switching") + labs(color = "Education")+scale_colour_continuous(name="Education",
+                         breaks=c(1,2,3,4,5,6), 
+                         labels=c("No HS" ,"High school graduate", "Some college", "2-year", "4-year", "Post-grad"))
+```
+
+```{r}
+voted_Trump.grid2 = expand.grid(imm_att = seq(-2, 2, 1), pid7.f = seq(1,7,1), 
+    educ.f = c(1,2,3,4,5,6), race.f = factor(c("White", "Black", "Hispanic"), ordered = FALSE), gender.f = factor(c("Male","Female"), ordered = FALSE))
+
+educ_names = c("1" = "No HS" ,"2" = "High school graduate","3" = "Some college","4" = "2-year","5" = "4-year","6" = "Post-grad")
+
+voted_Trump.pred2 = predict(voted_Trump.model, newdata = voted_Trump.grid2, type = "response")
+voted_Trump.grid3 = data.frame(voted_Trump.grid2, voter_Trump.prob = as.vector(voted_Trump.pred2))
+ggplot(voted_Trump.grid3, aes(x = imm_att, y = voter_Trump.prob, group = pid7.f, color = pid7.f)) + 
+    geom_line() +facet_grid(race.f + gender.f ~ educ.f, labeller = labeller(educ.f = as_labeller(educ_names)))+ xlab("immigration attitude") + ylab("Probability of switching") + 
+    labs(color = "Party Identification") + scale_colour_continuous(name="Party Identity",
+                         breaks=c(1,2,3,4,5,6,7),
+                         labels=c("Strong Democrat" ,"Not very strong Democrat", "Lean Democrat", "Independent", "Lean Republican", "Not very strong Republican", "Strong Republican"))
+```
+
+#model 2
+```{r}
+summary(glm(voted_Trump ~ educ.f + pid7.f*race.f + gender.f , family = "quasibinomial", weights = commonweight_vv_post, data = df2))
+```
+
+```{r}
+voted_Trump.model2 = glm(voted_Trump ~ educ.f + race.f +  pid7.f + gender.f  + educ.f:pid7.f  + educ.f:race.f + race.f:pid7.f + educ.f:gender.f + race.f:gender.f +  pid7.f:gender.f , family = "quasibinomial", weights = commonweight_vv_post, data = df2)
+
+voted_Trump.model2.df = df2
+voted_Trump.model2.df$.fitted = fitted.values(voted_Trump.model2)
+voted_Trump.model2.df$.resid = residuals(voted_Trump.model2, type = "response")
+ggplot(voted_Trump.model2.df, aes(x = .fitted, y = .resid)) + geom_point() + geom_smooth(method = "loess", 
+    method.args = list(degree = 1)) + xlab("Fitted values") + ylab("Residuals")
+```
+
+```{r}
+voted_Trump.grid4 = expand.grid(imm_att = seq(-2, 2, 1), pid7.f = seq(1,7,1), 
+    educ.f = seq(1, 6, 1), race.f = factor(c("White","Black","Hispanic", "Other"), ordered = FALSE), gender.f = factor(c("Male","Female"), ordered = FALSE))
+
+nice.palette =c("#999999", "#E69F00", "#56B4E9", "#0072B2", "#D55E00", "#CC79A7")
+
+pid7_names = c("1" = "Strong Democrat" ,"2" = "Not very strong Democrat","3" =  "Lean Democrat","4" = "Independent", "5" = "Lean Republican","6" = "Not very strong Republican", "7" = "Strong Republican")
+educ_names = c("1" = "No HS" ,"2" = "High school graduate","3" = "Some college","4" = "2-year","5" = "4-year","6" = "Post-grad")
+
+voted_Trump.pred4 = predict(voted_Trump.model2, newdata = voted_Trump.grid4, type = "response")
+voted_Trump.grid5 = data.frame(voted_Trump.grid4, voter_Trump.prob = as.vector(voted_Trump.pred4))
+gg = ggplot(voted_Trump.grid5, aes(x = educ.f, y = voter_Trump.prob, group = pid7.f, color = pid7.f)) + 
+    geom_line() +facet_grid(gender.f ~ race.f)+ xlab("Education") + ylab("Probability of switching") 
+gg1 = gg + scale_colour_continuous(name="Party Identity",
+                         breaks=c(1,2,3,4,5,6,7),
+                         labels=c("Strong Democrat" ,"Not very strong Democrat", "Lean Democrat", "Independent", "Lean Republican", "Not very strong Republican", "Strong Republican"))
+
+# gg1 = gg+scale_colour_continuous(name="Education",
+#                          breaks=c(1,2,3,4,5,6),
+#                          labels=c("No HS" ,"High school graduate", "Some college", "2-year", "4-year", "Post-grad"))
+
+gg1 + scale_x_continuous(breaks = seq(1,6,1),labels = c("No HS" ,"High school graduate", "Some college", "2-year", "4-year", "Post-grad")) + theme(axis.text.x = element_text(angle=45, hjust = 1))
+
+# gg1 + scale_x_continuous(breaks = seq(1,7,1),labels = c("Strong Democrat" ,"Not very strong Democrat", "Lean Democrat", "Independent", "Lean Republican", "Not very strong Republican", "Strong Republican")) + theme(axis.text.x = element_text(angle=45, hjust = 1))
+```
